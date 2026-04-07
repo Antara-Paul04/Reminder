@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand+SC&display=swap" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reminders</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Welcome back, Antara!</h1>
+      <div class="topbar-right">
+        <div class="date-pill">Date <span id="today-date"></span></div>
+        <button id="drawer-toggle" class="drawer-toggle" title="Open calendar">☰</button>
+      </div>
+    </header>
+    <div id="drawer-scrim" class="drawer-scrim"></div>
+
+    <main class="layout">
+      <div class="left">
+        <div class="capture-row">
+          <input id="capture-input" placeholder="Enter your task" />
+          <button id="mic-btn" title="Voice capture">🎙</button>
+        </div>
+        <div class="buckets">
+          <section class="bucket" data-bucket="today">
+            <header class="bucket-head">
+              <h2>Today's Deadlines</h2>
+                </header>
+            <div class="bucket-body" id="today-body"></div>
+          </section>
+
+          <section class="bucket" data-bucket="agenda">
+            <header class="bucket-head">
+              <h2>Agendas</h2>
+                </header>
+            <div class="bucket-body" id="agenda-body"></div>
+          </section>
+        </div>
+      </div>
+
+      <aside class="side" id="side">
+        <section class="calendar">
+          <div class="cal-head">
+            <h2>Your Calendar</h2>
+            <div class="cal-nav">
+              <button id="cal-prev">‹</button>
+              <span id="cal-label"></span>
+              <button id="cal-next">›</button>
+            </div>
+          </div>
+          <div class="cal-dow">
+            <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </section>
+        <section class="urgent">
+          <h2>Urgent!</h2>
+          <div class="urgent-body" id="urgent-body"></div>
+        </section>
+      </aside>
+    </main>
+
+    <template id="person-block-tpl">
+      <div class="person-block" data-person="">
+        <div class="person-name"></div>
+        <ul class="person-tasks"></ul>
+      </div>
+    </template>
+
+    <template id="task-item-tpl">
+      <li class="task-item" draggable="true">
+        <label class="check-wrap">
+          <input type="checkbox" class="check" />
+          <img class="tick" alt="" />
+        </label>
+        <span class="badge"></span>
+        <span class="task-text"></span>
+        <button class="task-del" title="Delete">✕</button>
+      </li>
+    </template>
+  </body>
+</html>
