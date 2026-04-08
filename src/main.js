@@ -1,7 +1,24 @@
 // Reminders app — local-first, no backend.
 const tickUrl = new URL("./assets/tick-mark.svg", import.meta.url).href;
+const arrowInUrl = new URL("./assets/arrow-in.svg", import.meta.url).href;
+const arrowOutUrl = new URL("./assets/arrow-out.svg", import.meta.url).href;
 
 const SEED_PEOPLE = ["Setal", "Rahul", "Pragadees", "Aman", "Anand", "Ashil", "Neeraj", "Vishnu"];
+// Small dictionary of common task-related words used for typo correction.
+const COMMON_WORDS = new Set([
+  // verbs
+  "fix","finish","complete","send","review","update","check","write","call","email","message","ping","remind","ask","tell","share","sync","schedule","book","buy","get","make","build","create","design","draft","prepare","plan","organize","clean","clear","close","open","start","stop","add","remove","delete","edit","read","reply","respond","follow","upload","download","push","pull","merge","deploy","test","fixed","finished","completed","sent","reviewed","updated","checked","wrote","called","emailed","messaged","pinged","reminded","asked","told","shared","synced","scheduled","booked","bought","got","made","built","created","designed","drafted","prepared","planned","organized","cleaned","cleared","closed","opened","started","stopped","added","removed","deleted","edited","replied","responded","followed","uploaded","downloaded","pushed","pulled","merged","deployed","tested","pay","paid","print","printed","return","returned","pick","picked","drop","dropped","watch","watched","read","wrote","talk","talked","meet","met","attend","join","joined",
+  // nouns
+  "flow","layout","page","screen","screens","photo","photos","photo","video","videos","album","app","mobile","web","login","signup","onboarding","payment","email","emails","mail","message","messages","note","notes","doc","docs","document","report","deck","slide","slides","ticket","issue","bug","feature","release","branch","pr","commit","build","invoice","bill","contract","agreement","quote","offer","client","clients","user","users","team","meeting","call","calls","plan","budget","price","cost","date","time","day","week","month","year","morning","evening","night","tomorrow","today","weekend","party","trip","ride","cab","ola","uber","food","lunch","dinner","breakfast","cake","flowers","gift","mom","dad","brother","sister","friend","family","house","home","office","shop","store","market","bank","atm","key","keys","car","bike","laptop","phone","charger","cable","book","books","class","exam","test","project","task","tasks","list","reminder","reminders","alarm","update",
+  // glue
+  "the","a","an","of","to","for","with","and","or","by","on","in","at","from","into","about","up","down","out","off","over","under","this","that","these","those","my","your","our","their","his","her","its","be","is","are","was","were","been","being","do","does","did","done","doing","have","has","had","not","no","yes","very","just","also","still","yet","soon","later","before","after","while","when","where","why","how","what","who","which","then","than","so","but","if","as","because","new","old","good","bad","big","small","next","last","first","second","third","more","less","most","least","all","some","any","each","every","other","another","same","different","high","low","fast","slow","easy","hard","important","main","best","top","bottom","left","right","front","back",
+]);
+
+const PERSON_ALIASES = {
+  "prag": "Pragadees",
+  "praga": "Pragadees",
+  "pragadeesh": "Pragadees",
+};
 
 const DIR = { THEM: "they_owe_me", ME: "i_owe_them" };
 const BUCKET = { TODAY: "today", AGENDA: "agenda" };
@@ -9,6 +26,7 @@ const BUCKET = { TODAY: "today", AGENDA: "agenda" };
 const state = {
   people: [],
   tasks: [], // {id, text, person, direction, bucket, deadline, done, links, createdAt}
+  filterDate: null, // yyyy-mm-dd or null — filters Agendas to this day only
 };
 
 // ---------- persistence ----------
@@ -17,7 +35,7 @@ function load() {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      state.people = (parsed.people || SEED_PEOPLE).filter((p) => p !== "Me");
+      state.people = parsed.people || SEED_PEOPLE;
       state.tasks = (parsed.tasks || []).map(migrateTask).filter(Boolean);
       return;
     } catch (e) {}
@@ -28,13 +46,11 @@ function load() {
 
 function migrateTask(t) {
   if (!t) return null;
-  // old `owner` field
   if (t.owner && !t.person) {
-    if (t.owner === "Me") return null;
     t.person = t.owner;
     t.direction = DIR.THEM;
   }
-  if (!t.person) return null;
+  if (!t.person) t.person = "Me";
   if (!t.direction) t.direction = DIR.THEM;
   if (!t.bucket) t.bucket = BUCKET.AGENDA;
   return t;
@@ -67,17 +83,29 @@ const FILLER_PHRASES = [
   "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
   // misc
   "about", "regarding", "re:", "hey", "btw",
+  // urgency
+  "urgent", "urgently", "asap", "right away", "immediately", "high priority", "priority",
 ];
 
 function parseInput(text) {
   const lower = text.toLowerCase();
 
-  // person — exact, then fuzzy (typo-tolerant)
+  // person — exact, then aliases, then fuzzy (typo-tolerant)
   let person = null;
   let personMatchedToken = null;
   for (const p of state.people) {
     const re = new RegExp(`\\b${p.toLowerCase()}\\b`);
     if (re.test(lower)) { person = p; personMatchedToken = p.toLowerCase(); break; }
+  }
+  if (!person) {
+    for (const [alias, full] of Object.entries(PERSON_ALIASES)) {
+      const re = new RegExp(`\\b${alias}\\b`);
+      if (re.test(lower) && state.people.includes(full)) {
+        person = full;
+        personMatchedToken = alias;
+        break;
+      }
+    }
   }
   if (!person) {
     const tokens = lower.match(/[a-z]+/g) || [];
@@ -97,9 +125,21 @@ function parseInput(text) {
   }
 
   // direction
+  // Direction:
+  //   DIR.ME    = incoming  (they pushed a task TO me — "asked me", "told me", ...)
+  //   DIR.THEM  = outgoing  (I need to push to them — "remind", "tell X", "ask X", ...)
   let direction = DIR.THEM;
-  if (/\b(asked me|for me|i need to|i have to|i should|i must|gave me|remind me)\b/.test(lower)) {
-    direction = DIR.ME;
+  const incomingRe = /\b(asked me|told me|wants me|wanted me|needs me|needed me|gave me|for me|i need to|i have to|i should|i must|remind me|reminder for me)\b/;
+  const outgoingRe = /\b(remind|tell|ask|follow up|followup|ping|chase|nudge|reach out|get back to|message|msg|text|call|email|mail)\b/;
+  if (incomingRe.test(lower)) direction = DIR.ME;
+  else if (outgoingRe.test(lower)) direction = DIR.THEM;
+  else {
+    // Fuzzy fallback — handle typos like "tld me", "askd", "remmind"
+    const tokens = lower.match(/[a-z']+/g) || [];
+    const incomingVerbs = ["asked", "told", "wants", "wanted", "needs", "needed", "gave"];
+    const outgoingVerbs = ["remind", "tell", "ask", "ping", "chase", "nudge", "message", "call", "email", "text", "mail", "followup", "reach"];
+    if (fuzzyHasNear(tokens, incomingVerbs, "me")) direction = DIR.ME;
+    else if (fuzzyHas(tokens, outgoingVerbs)) direction = DIR.THEM;
   }
 
   // deadline / bucket
@@ -151,6 +191,15 @@ function parseInput(text) {
   else if (/\btomorrow\b/.test(lower)) deadline = deadline || ymd(addDays(today, 1));
   else if (/\bnext week\b/.test(lower)) deadline = deadline || ymd(addDays(today, 7));
 
+  // Urgency (with fuzzy fallback for typos like "urgnt", "asp")
+  let urgent = false;
+  if (/\b(urgent|urgently|asap|right away|immediately|priority|high priority)\b/.test(lower)) {
+    urgent = true;
+  } else {
+    const tokens = lower.match(/[a-z]+/g) || [];
+    if (fuzzyHas(tokens, ["urgent", "urgently", "asap", "immediately", "priority"])) urgent = true;
+  }
+
   // build clean text
   let cleanText = text;
   if (dateMatchRange) {
@@ -173,7 +222,61 @@ function parseInput(text) {
     .replace(/^(to|the|a|that|and)\s+/i, "")
     .trim();
 
-  return { text: cleanText || text, person, direction, bucket, deadline };
+  cleanText = correctSpelling(cleanText);
+  return { text: cleanText || text, person, direction, bucket, deadline, urgent };
+}
+
+function correctSpelling(text) {
+  // Per-token: if token is unknown and there's a unique close common word at distance 1, swap.
+  return text.replace(/[A-Za-z']+/g, (tok) => {
+    const lower = tok.toLowerCase();
+    if (lower.length < 3) return tok;
+    if (COMMON_WORDS.has(lower)) return tok;
+    // never alter detected person names
+    if (state.people.some((p) => p.toLowerCase() === lower)) return tok;
+    let best = null;
+    let bestCount = 0;
+    for (const word of COMMON_WORDS) {
+      if (Math.abs(word.length - lower.length) > 1) continue;
+      const d = levenshtein(lower, word);
+      if (d === 1) {
+        if (!best) { best = word; bestCount = 1; }
+        else if (word !== best) bestCount++;
+      }
+    }
+    if (best && bestCount === 1) {
+      // preserve capitalization of original first letter
+      if (tok[0] === tok[0].toUpperCase()) return best[0].toUpperCase() + best.slice(1);
+      return best;
+    }
+    return tok;
+  });
+}
+
+function fuzzyMatchWord(token, target) {
+  if (token === target) return true;
+  if (target.length <= 3) return token === target;
+  const tol = Math.max(1, Math.floor(target.length / 4));
+  return levenshtein(token, target) <= tol;
+}
+function fuzzyHas(tokens, candidates) {
+  for (const tok of tokens) {
+    for (const c of candidates) {
+      if (fuzzyMatchWord(tok, c)) return true;
+    }
+  }
+  return false;
+}
+function fuzzyHasNear(tokens, candidates, nextWord) {
+  for (let i = 0; i < tokens.length; i++) {
+    for (const c of candidates) {
+      if (fuzzyMatchWord(tokens[i], c)) {
+        const next = tokens[i + 1];
+        if (!nextWord || (next && fuzzyMatchWord(next, nextWord))) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function levenshtein(a, b) {
@@ -203,6 +306,12 @@ function inferYear(mo, day, today) {
   return y;
 }
 
+function formatShortDate(ymdStr) {
+  const [y, m, d] = ymdStr.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${d} ${months[m - 1]}`;
+}
+
 function ymd(d) {
   return d.getFullYear() + "-" +
     String(d.getMonth() + 1).padStart(2, "0") + "-" +
@@ -215,10 +324,10 @@ function addDays(d, n) {
 }
 
 // ---------- task ops ----------
-function addTask({ text, person, direction, bucket, deadline }) {
+function addTask({ text, person, direction, bucket, deadline, urgent }) {
   if (!person) {
-    alert("Mention a person's name in the task.");
-    return;
+    person = "Me";
+    if (!state.people.includes("Me")) state.people.unshift("Me");
   }
   state.tasks.push({
     id: crypto.randomUUID(),
@@ -227,6 +336,7 @@ function addTask({ text, person, direction, bucket, deadline }) {
     direction: direction || DIR.THEM,
     bucket: bucket || BUCKET.AGENDA,
     deadline: deadline || null,
+    urgent: !!urgent,
     done: false,
     links: [],
     createdAt: Date.now(),
@@ -285,14 +395,28 @@ function renderBucket(bucketKey, container) {
   const blockTpl = document.getElementById("person-block-tpl");
   const itemTpl = document.getElementById("task-item-tpl");
 
-  for (const person of state.people) {
-    const tasks = state.tasks.filter((t) => t.bucket === bucketKey && t.person === person && !t.urgent);
+  const orderedPeople = [...state.people].sort((a, b) => {
+    if (a === "Me") return -1;
+    if (b === "Me") return 1;
+    return 0;
+  });
+  for (const person of orderedPeople) {
+    const tasks = state.tasks.filter((t) => {
+      if (t.person !== person) return false;
+      if (t.urgent) return false;
+      if (bucketKey === BUCKET.AGENDA && state.filterDate) {
+        // When filtering by a date, include matching tasks from any bucket
+        return t.deadline === state.filterDate;
+      }
+      if (t.bucket !== bucketKey) return false;
+      return true;
+    });
     if (tasks.length === 0) continue;
 
     const block = blockTpl.content.cloneNode(true);
     const blockEl = block.querySelector(".person-block");
     blockEl.dataset.person = person;
-    blockEl.querySelector(".person-name").textContent = person + "'s list";
+    blockEl.querySelector(".person-name").textContent = person === "Me" ? "My list" : person + "'s list";
     const ul = blockEl.querySelector(".person-tasks");
 
     for (const task of tasks) {
@@ -307,18 +431,28 @@ function renderBucket(bucketKey, container) {
       check.addEventListener("change", () => toggleDone(task.id));
 
       const badge = li.querySelector(".badge");
-      badge.textContent = task.direction === DIR.THEM ? "📥" : "📤";
-      badge.title = "Click to flip direction";
-      badge.addEventListener("click", (e) => {
-        e.stopPropagation();
-        flipDirection(task.id);
-      });
+      if (person === "Me") {
+        badge.remove();
+      } else {
+        badge.innerHTML = "";
+        const arrowImg = document.createElement("img");
+        arrowImg.src = task.direction === DIR.ME ? arrowInUrl : arrowOutUrl;
+        arrowImg.alt = task.direction === DIR.ME ? "incoming" : "outgoing";
+        arrowImg.className = "dir-arrow";
+        badge.appendChild(arrowImg);
+        badge.title = task.direction === DIR.ME ? "Incoming — they asked you" : "Outgoing — you need to push";
+        badge.style.cursor = "default";
+      }
 
       const textEl = li.querySelector(".task-text");
-      textEl.textContent = task.text;
+      let displayText = task.text;
+      if (bucketKey === BUCKET.AGENDA && task.deadline) {
+        displayText += ` (${formatShortDate(task.deadline)})`;
+      }
+      textEl.textContent = displayText;
       textEl.addEventListener("dblclick", (e) => {
         e.stopPropagation();
-        startInlineEdit(textEl, task.id);
+        startInlineEdit(textEl, task.id, task.text);
       });
 
       const delBtn = li.querySelector(".task-del");
@@ -358,7 +492,8 @@ function wireDropZone(el, bucketKey) {
   });
 }
 
-function startInlineEdit(textEl, id) {
+function startInlineEdit(textEl, id, rawText) {
+  if (rawText !== undefined) textEl.textContent = rawText;
   textEl.contentEditable = "true";
   textEl.classList.add("editing");
   const range = document.createRange();
@@ -404,7 +539,7 @@ function renderUrgent() {
     textEl.textContent = `${task.text} (${task.person})`;
     textEl.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      startInlineEdit(textEl, task.id);
+      startInlineEdit(textEl, task.id, task.text);
     });
     const delBtn = li.querySelector(".task-del");
     if (delBtn) {
@@ -487,6 +622,19 @@ function init() {
         String(dayNum).padStart(2, "0");
       const hasTask = state.tasks.some((t) => !t.done && t.deadline === ymdStr);
       if (hasTask) cell.classList.add("has-task");
+      if (state.filterDate === ymdStr) cell.classList.add("selected");
+      cell.dataset.ymd = ymdStr;
+      const isToday =
+        cellYear === today.getFullYear() &&
+        cellMonth === today.getMonth() &&
+        dayNum === today.getDate();
+      if (hasTask && !isToday) {
+        cell.style.cursor = "pointer";
+        cell.addEventListener("click", () => {
+          state.filterDate = state.filterDate === ymdStr ? null : ymdStr;
+          render();
+        });
+      }
       cell.textContent = dayNum;
       grid.appendChild(cell);
     }
@@ -519,6 +667,8 @@ function init() {
       e.preventDefault();
       urgentBody.classList.remove("drag-over");
       const id = e.dataTransfer.getData("text/plain");
+      const t = state.tasks.find((x) => x.id === id);
+      if (!t || t.done) return; // done tasks stay in their original list
       moveTask(id, { urgent: true });
     });
   }

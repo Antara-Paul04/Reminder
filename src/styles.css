@@ -227,7 +227,12 @@ button, input {
 
 /* ---------- Person blocks ---------- */
 .person-block {
-  padding: 0;
+  padding: 0 0 44px 0;
+}
+.person-block.drop-target {
+  background: rgba(16, 11, 187, 0.06);
+  outline: 2px dashed rgba(16, 11, 187, 0.35);
+  outline-offset: -4px;
 }
 .person-name {
   font-family: "Patrick Hand SC", cursive;
@@ -245,22 +250,19 @@ button, input {
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: 44px;
 }
 
 .task-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 0 6px;
-  min-height: 44px;
+  height: 44px;
   cursor: grab;
   font-size: 20px;
   line-height: 44px;
   color: var(--ink-blue);
 }
-.task-item .check,
-.task-item .badge { margin-top: 10px; }
 .task-item:active { cursor: grabbing; }
 
 .task-item .check-wrap {
@@ -268,7 +270,6 @@ button, input {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  margin-top: 10px;
   display: block;
   overflow: visible;
 }
@@ -296,17 +297,31 @@ button, input {
 .task-item .check:checked + .tick { display: block; }
 
 .task-item .badge {
-  font-size: 14px;
+  line-height: 1;
+  height: 18px;
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   user-select: none;
+  flex-shrink: 0;
+  overflow: hidden;
 }
+.dir-arrow {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.task-item .task-del { margin-left: auto; }
 
 .task-item .task-text {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   line-height: 44px;
-  word-wrap: break-word;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .task-item.done .task-text {
@@ -319,16 +334,18 @@ button, input {
 .task-item .task-del {
   background: transparent;
   border: none;
-  color: var(--ink-blue);
+  color: rgba(0, 0, 0, 0.32);
   font-size: 16px;
+  line-height: 1;
   cursor: pointer;
   padding: 0 4px;
-  margin-top: 12px;
-  opacity: 0.85;
-  transition: opacity 0.12s ease;
+  transition: color 0.12s ease;
   flex-shrink: 0;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
 }
-.task-item .task-del:hover { opacity: 1; }
+.task-item .task-del:hover { color: rgba(0, 0, 0, 0.55); }
 
 .task-item .task-text.editing {
   outline: 1px dashed var(--ink-blue);
@@ -414,6 +431,10 @@ button, input {
 .cal-cell.today {
   background: var(--ink-blue);
   color: var(--paper);
+}
+.cal-cell.selected {
+  outline: 2px solid var(--ink-blue);
+  outline-offset: -2px;
 }
 .cal-cell.has-task::after {
   content: "";
