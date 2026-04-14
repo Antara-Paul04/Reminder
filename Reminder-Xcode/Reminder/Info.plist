@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ATSApplicationFontsPath</key>
+	<string>.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Reminder needs microphone access to capture tasks via voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Reminder uses speech recognition to convert your voice into task text.</string>
+</dict>
+</plist>
