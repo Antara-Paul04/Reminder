@@ -1,12 +1,7 @@
-# macOS
-.DS_Store
-*.swp
-
-# Xcode
-xcuserdata/
-*.xcscmblueprint
-DerivedData/
-build/
-
-# Dependencies
 node_modules/
+out/
+dist/
+*.log
+.DS_Store
+*.local
+*.tsbuildinfo
