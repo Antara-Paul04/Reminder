@@ -43,31 +43,19 @@ export interface Spec {
   updatedAt: number
 }
 
-export type TimelineEventType =
-  | 'project.created'
-  | 'project.renamed'
-  | 'project.brief_updated'
-  | 'inspiration.added'
-  | 'inspiration.removed'
-  | 'note.created'
-  | 'note.updated'
-  | 'note.deleted'
-  | 'spec.created'
-  | 'spec.updated'
-  | 'spec.deleted'
-  | 'screenshot.added'
-  | 'screenshot.removed'
-  | 'qa.added'
-  | 'qa.resolved'
-  | 'qa.reopened'
-  | 'qa.deleted'
+/**
+ * Timeline event types are open-ended strings namespaced by prefix
+ * ('project.*', 'note.*', 'mission.*', 'agent.*', 'artifact.*', …) — the
+ * runtime contributes its own entries alongside user actions.
+ */
+export type TimelineEventType = string
 
 export interface TimelineEvent {
   id: string
   projectId: string
   type: TimelineEventType
   message: string
-  /** Originating actor. 'you' for the human; agent ids in Phase 2. */
+  /** Originating actor. 'you' for the human; agent names for the runtime. */
   actor: string
   createdAt: number
 }
@@ -92,16 +80,47 @@ export interface QaItem {
   createdAt: number
 }
 
-/**
- * Agent roster. Static in Phase 1 — the orchestration layer that drives
- * these arrives in Phase 2, but the shape is fixed now so panels can bind to it.
- */
-export interface AgentInfo {
+// ---------------------------------------------------------------------------
+// Runtime wire types. The renderer consumes runtime state exclusively through
+// these re-exports — it never imports provider code.
+// ---------------------------------------------------------------------------
+
+export type {
+  AgentRole,
+  AgentStatus,
+  ArtifactKind,
+  MissionStage,
+  MissionStatus,
+  RuntimeEvent
+} from '../core/runtime/types'
+export { MISSION_STAGES, STAGE_LABELS } from '../core/runtime/types'
+export type { AgentDescriptor } from '../core/runtime/Agent'
+
+import type { ArtifactKind, MissionStage, MissionStatus } from '../core/runtime/types'
+
+/** Persisted mission row (survives restarts; live state comes via events). */
+export interface MissionRecord {
   id: string
+  projectId: string
+  title: string
+  brief: string
+  status: MissionStatus
+  stage: MissionStage
+  failedStepIndex: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+/** Persisted artifact row. */
+export interface MissionArtifactRecord {
+  id: string
+  missionId: string
   name: string
-  role: string
-  provider: 'claude-code' | 'anthropic-api' | 'builtin'
-  status: 'idle' | 'running' | 'unavailable'
+  kind: ArtifactKind
+  description: string
+  content: string
+  createdBy: string
+  createdAt: number
 }
 
 /** Payload for uploading a binary file (image) from the renderer. */

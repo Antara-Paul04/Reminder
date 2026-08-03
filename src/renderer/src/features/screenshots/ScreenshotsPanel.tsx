@@ -8,10 +8,12 @@ import { api } from '@/lib/api'
 import { imageFilesFromDrop, toFileUpload } from '@/lib/files'
 import { relativeTime } from '@/lib/format'
 import { mediaUrl } from '@/lib/utils'
+import { useRuntimeStore } from '@/stores/runtime'
 import { refreshTimeline } from '@/stores/timeline'
 
 export function ScreenshotsPanel({ projectId }: { projectId: string }) {
-  const { items, reload } = useProjectData(projectId, api.screenshots.list)
+  const artifactVersion = useRuntimeStore((s) => s.artifactVersion)
+  const { items, reload } = useProjectData(projectId, api.screenshots.list, artifactVersion)
   const [dragging, setDragging] = useState(false)
 
   const addFiles = async (files: File[]) => {
@@ -55,7 +57,7 @@ export function ScreenshotsPanel({ projectId }: { projectId: string }) {
     >
       <div className="flex shrink-0 items-center justify-between border-b px-4 py-2.5">
         <p className="text-xs text-muted-foreground">
-          Build previews, newest first. Agents will capture these automatically in Phase 2.
+          Build previews, newest first. Agents capture these during missions; you can add your own.
         </p>
         <Button variant="secondary" size="sm" onClick={pickFiles}>
           <Upload className="!size-3.5" /> Add screenshot

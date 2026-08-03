@@ -74,5 +74,31 @@ export const MIGRATIONS: string[] = [
     created_at INTEGER NOT NULL
   );
   CREATE INDEX idx_qa_project ON qa_items(project_id);
+  `,
+  `
+  CREATE TABLE missions (
+    id                TEXT PRIMARY KEY,
+    project_id        TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title             TEXT NOT NULL,
+    brief             TEXT NOT NULL DEFAULT '',
+    status            TEXT NOT NULL,
+    stage             TEXT NOT NULL,
+    failed_step_index INTEGER,
+    created_at        INTEGER NOT NULL,
+    updated_at        INTEGER NOT NULL
+  );
+  CREATE INDEX idx_missions_project ON missions(project_id, created_at DESC);
+
+  CREATE TABLE mission_artifacts (
+    id          TEXT PRIMARY KEY,
+    mission_id  TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    content     TEXT NOT NULL DEFAULT '',
+    created_by  TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX idx_artifacts_mission ON mission_artifacts(mission_id, created_at);
   `
 ]

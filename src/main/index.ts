@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import { registerMediaScheme, registerMediaProtocol } from './media'
 import { openDatabase, closeDatabase } from './db'
 import { registerIpcHandlers } from './ipc'
+import { initRuntime } from './runtime'
 import { createMainWindow } from './window'
 
 // Must run before app is ready.
@@ -10,6 +11,7 @@ registerMediaScheme()
 app.whenReady().then(() => {
   registerMediaProtocol()
   openDatabase()
+  initRuntime()
   registerIpcHandlers()
   createMainWindow()
 

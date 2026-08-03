@@ -38,14 +38,24 @@ export function getSpec(id: string): Spec {
 }
 
 export function createSpec(projectId: string, title: string): Spec {
+  return createAuthoredSpec(projectId, title, '', 'you')
+}
+
+/** Used by the runtime bridge when agents produce spec artifacts. */
+export function createAuthoredSpec(
+  projectId: string,
+  title: string,
+  content: string,
+  author: string
+): Spec {
   const id = randomUUID()
   const now = Date.now()
   getDb()
     .prepare(
       `INSERT INTO specs (id, project_id, title, content, author, created_at, updated_at)
-       VALUES (?, ?, ?, '', 'you', ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, projectId, title, now, now)
+    .run(id, projectId, title, content, author, now, now)
   return getSpec(id)
 }
 

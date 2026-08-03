@@ -1,11 +1,14 @@
 import type {
-  AgentInfo,
+  AgentDescriptor,
   FileUpload,
   InspirationItem,
+  MissionArtifactRecord,
+  MissionRecord,
   Note,
   Project,
   QaItem,
   QaSeverity,
+  RuntimeEvent,
   Screenshot,
   Spec,
   TimelineEvent
@@ -50,7 +53,15 @@ export interface IpcContract {
   'qa:setStatus': { req: [id: string, status: 'open' | 'resolved']; res: QaItem }
   'qa:delete': { req: [id: string]; res: void }
 
-  'agents:list': { req: []; res: AgentInfo[] }
+  'agents:list': { req: []; res: AgentDescriptor[] }
+
+  'missions:list': { req: [projectId: string]; res: MissionRecord[] }
+  'missions:start': { req: [projectId: string]; res: MissionRecord }
+  'missions:pause': { req: [missionId: string]; res: void }
+  'missions:resume': { req: [missionId: string]; res: void }
+  'missions:cancel': { req: [missionId: string]; res: void }
+  'missions:retry': { req: [missionId: string]; res: void }
+  'missions:artifacts': { req: [missionId: string]; res: MissionArtifactRecord[] }
 }
 
 export type IpcChannel = keyof IpcContract
@@ -82,8 +93,18 @@ export const IPC_CHANNELS: IpcChannel[] = [
   'qa:add',
   'qa:setStatus',
   'qa:delete',
-  'agents:list'
+  'agents:list',
+  'missions:list',
+  'missions:start',
+  'missions:pause',
+  'missions:resume',
+  'missions:cancel',
+  'missions:retry',
+  'missions:artifacts'
 ]
+
+/** Push channel: runtime events streamed main → renderer. */
+export const RUNTIME_EVENT_CHANNEL = 'runtime:event'
 
 /** Shape of the API exposed on `window.api` by the preload script. */
 export interface RendererApi {
@@ -91,4 +112,6 @@ export interface RendererApi {
     channel: C,
     ...args: IpcContract[C]['req']
   ): Promise<IpcContract[C]['res']>
+  /** Subscribe to runtime events pushed from main. Returns unsubscribe. */
+  onRuntimeEvent(handler: (event: RuntimeEvent) => void): () => void
 }

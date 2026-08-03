@@ -10,6 +10,7 @@ import { NewProjectDialog } from '@/features/projects/ProjectDialogs'
 import { TimelinePanel } from '@/features/timeline/TimelinePanel'
 import { useBlockWindowFileDrop, useShortcuts } from '@/hooks/useShortcuts'
 import { useActiveProject, useProjectStore } from '@/stores/projects'
+import { useRuntimeStore } from '@/stores/runtime'
 import { useUiStore } from '@/stores/ui'
 
 function ResizeHandle() {
@@ -29,6 +30,18 @@ export default function App() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Single runtime-event subscription for the whole renderer.
+  useEffect(() => {
+    return window.api.onRuntimeEvent((event) => {
+      useRuntimeStore.getState().handleEvent(event)
+    })
+  }, [])
+
+  // Rebase runtime state (agents, missions, transcripts) on the active project.
+  useEffect(() => {
+    void useRuntimeStore.getState().init(project?.id ?? null)
+  }, [project?.id])
 
   return (
     <TooltipProvider delayDuration={400}>

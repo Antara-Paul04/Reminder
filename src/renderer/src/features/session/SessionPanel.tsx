@@ -1,81 +1,117 @@
-import { useEffect, useState } from 'react'
-import { Bot, Sparkles, Terminal } from 'lucide-react'
-import type { AgentInfo } from '@shared/types'
+import { Bot, Rocket } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { api } from '@/lib/api'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AGENT_STATUS_META, MISSION_STATUS_META } from '@/lib/agentMeta'
 import { cn } from '@/lib/utils'
+import { useRuntimeStore } from '@/stores/runtime'
+import { MissionControls } from './MissionControls'
+import { MissionProgress } from './MissionProgress'
+import { Transcript } from './Transcript'
 
 /**
- * Claude session panel. Phase 1 renders the roster and the session chrome;
- * Phase 2 wires live agent sessions (streaming transcript, tool activity)
- * into this exact layout.
+ * Live mission control. Fully event-driven: everything here re-renders off
+ * runtime events, with no knowledge of which provider powers an agent.
  */
-export function SessionPanel() {
-  const [agents, setAgents] = useState<AgentInfo[]>([])
-
-  useEffect(() => {
-    void api.agents.list().then(setAgents)
-  }, [])
+export function SessionPanel({ projectId }: { projectId: string }) {
+  const { agents, missions, transcripts, progress } = useRuntimeStore()
+  const mission = missions[0] ?? null
+  const lines = mission ? (transcripts[mission.id] ?? []) : []
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
-        {agents.map((agent) => (
-          <button
-            key={agent.id}
-            disabled
-            className={cn(
-              'flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground',
-              'cursor-not-allowed opacity-70'
-            )}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-            {agent.name}
-          </button>
-        ))}
-        <Badge variant="secondary" className="ml-auto">
-          No active session
-        </Badge>
+        {agents.map((agent) => {
+          const meta = AGENT_STATUS_META[agent.status]
+          const agentProgress = progress[agent.id]
+          const active = agent.status !== 'idle' && agent.status !== 'complete'
+          return (
+            <Tooltip key={agent.id}>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    'flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
+                    active ? 'border-border bg-secondary/60 text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
+                  <span>{agent.name}</span>
+                  <span className={cn('text-[10px] uppercase tracking-wide', meta.text)}>
+                    {agentProgress && agent.status === 'working'
+                      ? `${Math.round(agentProgress.percent)}%`
+                      : meta.label}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[240px]">
+                {agent.description} · provider: {agent.provider}
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
+        {mission && (
+          <Badge className={cn('ml-auto border-transparent', MISSION_STATUS_META[mission.status].badge)}>
+            {MISSION_STATUS_META[mission.status].label}
+          </Badge>
+        )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-8 text-center">
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border bg-secondary/50">
-          <Terminal className="h-[18px] w-[18px] text-muted-foreground" />
+      {mission && (
+        <div className="shrink-0 border-b px-4 pb-3 pt-3">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <p className="truncate text-[13px] font-medium">{mission.title}</p>
+          </div>
+          <MissionProgress mission={mission} />
         </div>
-        <p className="text-[13px] font-medium">Sessions arrive in Phase 2</p>
-        <p className="max-w-[360px] text-xs leading-relaxed text-muted-foreground">
-          This is where you&apos;ll watch the Creative Director, Engineer (Claude Code) and Design
-          QA collaborate — streaming transcripts, tool activity and hand-offs between agents.
-        </p>
-        <div className="mt-5 grid max-w-md gap-2 text-left">
-          {agents.map((agent) => (
-            <div key={agent.id} className="flex items-start gap-3 rounded-lg border bg-card px-3 py-2.5">
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary">
-                {agent.provider === 'claude-code' ? (
-                  <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium">{agent.name}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">{agent.role}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
+
+      {mission ? (
+        lines.length > 0 ? (
+          <Transcript lines={lines} agents={agents} />
+        ) : (
+          <IdleTranscriptNotice />
+        )
+      ) : (
+        <EmptySession />
+      )}
 
       <div className="shrink-0 border-t p-3">
         <div className="flex items-center gap-2">
-          <Input disabled placeholder="Message an agent… (Phase 2)" />
-          <Button disabled size="default">
-            <Bot className="!size-4" /> Run
-          </Button>
+          <MissionControls projectId={projectId} mission={mission} />
+          <Input
+            disabled
+            className="flex-1"
+            placeholder="Direct messages to agents arrive with live providers"
+          />
         </div>
       </div>
+    </div>
+  )
+}
+
+function EmptySession() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-8 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border bg-secondary/50">
+        <Rocket className="h-[18px] w-[18px] text-muted-foreground" />
+      </div>
+      <p className="text-[13px] font-medium">No missions yet</p>
+      <p className="max-w-[360px] text-xs leading-relaxed text-muted-foreground">
+        Start a mission and watch the Creative Director, Engineer and Design QA take your brief
+        from research to a reviewed build — every step streams here as it happens.
+      </p>
+    </div>
+  )
+}
+
+function IdleTranscriptNotice() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-8 text-center">
+      <Bot className="mb-2 h-5 w-5 text-muted-foreground" />
+      <p className="text-xs text-muted-foreground">
+        Transcript will stream here. Past missions keep their results in Specs, Screenshots, QA
+        and the activity timeline.
+      </p>
     </div>
   )
 }

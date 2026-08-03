@@ -10,6 +10,7 @@ import { useProjectData } from '@/hooks/useProjectData'
 import { api } from '@/lib/api'
 import { relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useRuntimeStore } from '@/stores/runtime'
 import { refreshTimeline } from '@/stores/timeline'
 
 const SEVERITIES: { id: QaSeverity; label: string }[] = [
@@ -21,7 +22,8 @@ const SEVERITIES: { id: QaSeverity; label: string }[] = [
 const SEVERITY_VARIANT = { low: 'secondary', medium: 'warning', high: 'danger' } as const
 
 export function QaPanel({ projectId }: { projectId: string }) {
-  const { items, reload } = useProjectData(projectId, api.qa.list)
+  const artifactVersion = useRuntimeStore((s) => s.artifactVersion)
+  const { items, reload } = useProjectData(projectId, api.qa.list, artifactVersion)
   const [content, setContent] = useState('')
   const [severity, setSeverity] = useState<QaSeverity>('medium')
 
@@ -72,7 +74,7 @@ export function QaPanel({ projectId }: { projectId: string }) {
         <EmptyState
           icon={ShieldCheck}
           title="No QA feedback"
-          description="Track polish issues here. In Phase 2 the Design QA agent reviews builds against the spec and files feedback automatically."
+          description="Track polish issues here. The Design QA agent reviews builds against the spec and files feedback automatically during missions."
         />
       ) : (
         <ScrollArea className="min-h-0 flex-1">

@@ -4,10 +4,12 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { DocListEditor } from '@/features/docs/DocListEditor'
 import { useProjectData } from '@/hooks/useProjectData'
 import { api } from '@/lib/api'
+import { useRuntimeStore } from '@/stores/runtime'
 import { refreshTimeline } from '@/stores/timeline'
 
 export function SpecPanel({ projectId }: { projectId: string }) {
-  const { items, reload } = useProjectData(projectId, api.specs.list)
+  const artifactVersion = useRuntimeStore((s) => s.artifactVersion)
+  const { items, reload } = useProjectData(projectId, api.specs.list, artifactVersion)
 
   return (
     <DocListEditor

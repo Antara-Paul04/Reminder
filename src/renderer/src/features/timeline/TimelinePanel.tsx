@@ -1,10 +1,13 @@
 import { useEffect } from 'react'
 import {
   Activity,
+  Bot,
   Camera,
+  FileBox,
   FileText,
   FolderKanban,
   Image as ImageIcon,
+  Rocket,
   ShieldCheck,
   StickyNote,
   type LucideIcon
@@ -20,7 +23,10 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   note: StickyNote,
   spec: FileText,
   screenshot: Camera,
-  qa: ShieldCheck
+  qa: ShieldCheck,
+  mission: Rocket,
+  agent: Bot,
+  artifact: FileBox
 }
 
 function iconFor(event: TimelineEvent): LucideIcon {

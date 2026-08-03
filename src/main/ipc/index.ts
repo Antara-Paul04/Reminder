@@ -1,6 +1,7 @@
-import { listAgents } from '../agents/roster'
 import { listTimelineEvents } from '../db/timeline'
+import { getRuntime } from '../runtime'
 import { registerInspirationHandlers } from './inspiration'
+import { registerMissionHandlers } from './missions'
 import { registerNoteHandlers } from './notes'
 import { registerProjectHandlers } from './projects'
 import { registerQaHandlers } from './qa'
@@ -15,7 +16,8 @@ export function registerIpcHandlers(): void {
   registerSpecHandlers()
   registerScreenshotHandlers()
   registerQaHandlers()
+  registerMissionHandlers()
 
   handle('timeline:list', (projectId) => listTimelineEvents(projectId))
-  handle('agents:list', () => listAgents())
+  handle('agents:list', () => getRuntime().describeAgents())
 }

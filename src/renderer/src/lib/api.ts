@@ -50,5 +50,14 @@ export const api = {
   },
   agents: {
     list: () => invoke('agents:list')
+  },
+  missions: {
+    list: (projectId: string) => invoke('missions:list', projectId),
+    start: (projectId: string) => invoke('missions:start', projectId),
+    pause: (missionId: string) => invoke('missions:pause', missionId),
+    resume: (missionId: string) => invoke('missions:resume', missionId),
+    cancel: (missionId: string) => invoke('missions:cancel', missionId),
+    retry: (missionId: string) => invoke('missions:retry', missionId),
+    artifacts: (missionId: string) => invoke('missions:artifacts', missionId)
   }
 }

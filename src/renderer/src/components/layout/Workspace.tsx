@@ -57,7 +57,7 @@ function TabContent({ tab, projectId }: { tab: WorkspaceTab; projectId: string }
     case 'spec':
       return <SpecPanel projectId={projectId} />
     case 'session':
-      return <SessionPanel />
+      return <SessionPanel projectId={projectId} />
     case 'screenshots':
       return <ScreenshotsPanel projectId={projectId} />
     case 'qa':
