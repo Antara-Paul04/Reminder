@@ -60,13 +60,7 @@ export interface TimelineEvent {
   createdAt: number
 }
 
-export interface Screenshot {
-  id: string
-  projectId: string
-  filePath: string
-  label: string
-  createdAt: number
-}
+// Screenshots are review artifacts now — see the review re-exports below.
 
 export type QaSeverity = 'low' | 'medium' | 'high'
 export type QaStatus = 'open' | 'resolved'
@@ -95,6 +89,46 @@ export type {
 } from '../core/runtime/types'
 export { MISSION_STAGES, STAGE_LABELS } from '../core/runtime/types'
 export type { AgentDescriptor } from '../core/runtime/Agent'
+export type {
+  Capability,
+  ProviderDescriptor,
+  ProviderStatus,
+  ProviderType
+} from '../core/providers/types'
+export { CAPABILITY_LABELS, ROLE_CAPABILITY } from '../core/providers/types'
+export type { PendingManualRequest } from '../core/providers/manual/ManualProvider'
+export type {
+  ClaudeCodeConfig,
+  ClaudeCodeHealth
+} from '../core/providers/claude-code/ClaudeCodeConfig'
+
+// Review system (src/core/review)
+export type {
+  Annotation,
+  AnnotationSeverity,
+  CategoryScore,
+  IterationRecord,
+  ReviewCategory,
+  ReviewRecommendation,
+  ReviewSessionRecord,
+  ReviewTheme,
+  ScreenshotArtifactMeta,
+  ScreenshotRole,
+  Viewport
+} from '../core/review/types'
+export { REVIEW_CATEGORIES } from '../core/review/types'
+export type { AnnotationInput } from '../core/review/Annotation'
+export { overallScore } from '../core/review/ReviewSession'
+export type {
+  ManualSessionRecord,
+  ManualSessionStatus
+} from '../core/providers/manual/ManualSession'
+
+/** Basic app metadata for the Settings → General section. */
+export interface AppInfo {
+  version: string
+  dataDir: string
+}
 
 import type { ArtifactKind, MissionStage, MissionStatus } from '../core/runtime/types'
 
@@ -107,9 +141,32 @@ export interface MissionRecord {
   status: MissionStatus
   stage: MissionStage
   failedStepIndex: number | null
+  archived: boolean
   createdAt: number
   updatedAt: number
 }
+
+/** Stage checkpoint recorded by the autonomous loop. */
+export interface MissionCheckpoint {
+  id: string
+  missionId: string
+  projectId: string
+  stage: MissionStage
+  iteration: number
+  artifactCount: number
+  createdAt: number
+}
+
+export type { MissionMetricsSnapshot } from '../core/runtime/types'
+export type {
+  LoopPolicy
+} from '../core/runtime/orchestrator/LoopPolicy'
+export { DEFAULT_LOOP_POLICY } from '../core/runtime/orchestrator/LoopPolicy'
+export type { RetryStrategy } from '../core/runtime/orchestrator/RetryStrategy'
+export type {
+  MissionOutcome,
+  MissionReportData
+} from '../core/runtime/orchestrator/MissionReport'
 
 /** Persisted artifact row. */
 export interface MissionArtifactRecord {

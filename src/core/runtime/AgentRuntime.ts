@@ -36,14 +36,7 @@ export class AgentRuntime {
   }
 
   describeAgents(): AgentDescriptor[] {
-    return [...this.agents.values()].map((a) => ({
-      id: a.id,
-      name: a.name,
-      role: a.role,
-      provider: a.provider,
-      status: a.status,
-      description: a.description
-    }))
+    return [...this.agents.values()].map((a) => a.snapshot())
   }
 
   // -- missions -------------------------------------------------------------
@@ -86,6 +79,25 @@ export class AgentRuntime {
       .catch((error) => {
         console.error('[AgentRuntime] retry crashed', error)
       })
+  }
+
+  /** Build iteration counter for a mission (1-based). */
+  missionIteration(missionId: string): number {
+    return this.runners.get(missionId)?.iteration ?? 1
+  }
+
+  /** Attach an artifact outside any agent step (revision plans, reports…). */
+  attachArtifact(
+    missionId: string,
+    draft: { name: string; kind: Mission['artifacts'][number]['kind']; description: string; content: string },
+    createdBy: string
+  ): void {
+    this.runner(missionId).attachArtifact(draft, createdBy)
+  }
+
+  /** Send a settled mission back to engineering (revision / rollback). */
+  requestRevision(missionId: string, reason: string): void {
+    this.runner(missionId).markForRevision(reason)
   }
 
   mission(missionId: string): Mission | null {

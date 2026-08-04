@@ -34,6 +34,11 @@ export function useShortcuts(): void {
         ui.toggleTimeline()
         return
       }
+      if (key === ',') {
+        event.preventDefault()
+        ui.setView(ui.view === 'settings' ? 'workspace' : 'settings')
+        return
+      }
 
       const tabIndex = Number.parseInt(key, 10) - 1
       if (tabIndex >= 0 && tabIndex < WORKSPACE_TABS.length) {

@@ -2,10 +2,14 @@ import { create } from 'zustand'
 import type {
   AgentDescriptor,
   AgentStatus,
+  MissionMetricsSnapshot,
   MissionRecord,
+  PendingManualRequest,
+  ProviderDescriptor,
   RuntimeEvent
 } from '@shared/types'
 import { api } from '@/lib/api'
+import { useReviewStore } from '@/stores/review'
 import { refreshTimeline } from '@/stores/timeline'
 
 export interface TranscriptLine {
@@ -19,6 +23,7 @@ export interface TranscriptLine {
 interface RuntimeState {
   projectId: string | null
   agents: AgentDescriptor[]
+  providers: ProviderDescriptor[]
   /** Missions for the active project, newest first. */
   missions: MissionRecord[]
   /** Live transcript per mission id (session-local; not persisted). */
@@ -27,26 +32,42 @@ interface RuntimeState {
   progress: Record<string, { percent: number; label?: string }>
   /** Bumped whenever an artifact lands, so data panels reload. */
   artifactVersion: number
+  /** Manual interaction awaiting the user (prompt hand-off), if any. */
+  pendingManual: PendingManualRequest | null
+  /** Latest orchestration telemetry per mission id. */
+  metrics: Record<string, MissionMetricsSnapshot>
 
   init: (projectId: string | null) => Promise<void>
   handleEvent: (event: RuntimeEvent) => void
   startMission: (projectId: string) => Promise<void>
+  selectProvider: (agentId: string, providerId: string) => Promise<void>
 }
 
 export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   projectId: null,
   agents: [],
+  providers: [],
   missions: [],
   transcripts: {},
   progress: {},
   artifactVersion: 0,
+  pendingManual: null,
+  metrics: {},
 
   init: async (projectId) => {
-    const [agents, missions] = await Promise.all([
+    const [agents, providers, missions, pending] = await Promise.all([
       api.agents.list(),
-      projectId ? api.missions.list(projectId) : Promise.resolve([])
+      api.providers.list(),
+      projectId ? api.missions.list(projectId) : Promise.resolve([]),
+      projectId ? api.manual.pending(projectId) : Promise.resolve([])
     ])
-    set({ projectId, agents, missions })
+    set({ projectId, agents, providers, missions, pendingManual: pending[0] ?? null })
+  },
+
+  selectProvider: async (agentId, providerId) => {
+    await api.providers.select(agentId, providerId, get().projectId ?? undefined)
+    // Refresh agents so provider/providerName reflect the new assignment.
+    set({ agents: await api.agents.list() })
   },
 
   startMission: async (projectId) => {
@@ -67,9 +88,94 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       return
     }
 
+    // Provider lifecycle events are global too (not always project-scoped).
+    if (
+      event.type === 'provider.connected' ||
+      event.type === 'provider.disconnected' ||
+      event.type === 'provider.error'
+    ) {
+      const status =
+        event.type === 'provider.connected'
+          ? 'connected'
+          : event.type === 'provider.disconnected'
+            ? 'disconnected'
+            : 'error'
+      set({
+        providers: state.providers.map((p) =>
+          p.id === event.providerId ? { ...p, status } : p
+        )
+      })
+      return
+    }
+
+    if (event.type === 'provider.selected') {
+      set({
+        agents: state.agents.map((a) =>
+          a.id === event.agentId
+            ? {
+                ...a,
+                provider: event.providerId,
+                providerName:
+                  state.providers.find((p) => p.id === event.providerId)?.name ?? event.providerId
+              }
+            : a
+        )
+      })
+      if (event.projectId && event.projectId === state.projectId) refreshTimeline(event.projectId)
+      return
+    }
+
+    if (event.type === 'provider.execution.started' || event.type === 'provider.execution.finished') {
+      if (event.projectId === state.projectId) refreshTimeline(event.projectId)
+      return
+    }
+
+    if (event.type === 'manual.prompt') {
+      if (event.projectId !== state.projectId) return
+      set({
+        pendingManual: {
+          sessionId: event.sessionId,
+          providerId: event.providerId,
+          providerName: event.destinationLabel,
+          agentId: event.agentId,
+          missionId: event.missionId,
+          projectId: event.projectId,
+          prompt: event.prompt,
+          destinationLabel: event.destinationLabel,
+          destinationUrl: event.destinationUrl,
+          createdAt: event.at
+        }
+      })
+      refreshTimeline(event.projectId)
+      return
+    }
+
+    if (event.type === 'manual.imported') {
+      if (state.pendingManual?.sessionId === event.sessionId) set({ pendingManual: null })
+      if (event.projectId === state.projectId) refreshTimeline(event.projectId)
+      return
+    }
+
+    if (event.type.startsWith('review.')) {
+      if ('projectId' in event && event.projectId === state.projectId) {
+        void useReviewStore.getState().refresh()
+        refreshTimeline(event.projectId)
+      }
+      return
+    }
+
     if (event.projectId !== state.projectId) return
 
     switch (event.type) {
+      case 'mission.metrics':
+        set((s) => ({ metrics: { ...s.metrics, [event.missionId]: event.metrics } }))
+        break
+
+      case 'mission.checkpoint':
+      case 'mission.awaiting-approval':
+        refreshTimeline(event.projectId)
+        break
+
       case 'mission.started':
         set((s) => ({
           missions: [
@@ -94,14 +200,20 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         break
       case 'mission.cancelled':
         patchMission(set, event.missionId, { status: 'cancelled' })
-        set({ progress: {} })
+        set((s) => ({
+          progress: {},
+          pendingManual: s.pendingManual?.missionId === event.missionId ? null : s.pendingManual
+        }))
         break
       case 'mission.failed':
         patchMission(set, event.missionId, {
           status: 'failed',
           failedStepIndex: event.failedStepIndex
         })
-        set({ progress: {} })
+        set((s) => ({
+          progress: {},
+          pendingManual: s.pendingManual?.missionId === event.missionId ? null : s.pendingManual
+        }))
         appendLine(set, event.missionId, {
           id: event.id,
           agentId: 'system',
@@ -180,6 +292,7 @@ function missionFromSnapshot(
     status: m.status,
     stage: m.stage,
     failedStepIndex: m.failedStepIndex,
+    archived: false,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt
   }

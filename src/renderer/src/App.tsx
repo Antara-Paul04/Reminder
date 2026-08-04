@@ -7,6 +7,7 @@ import { WelcomeScreen } from '@/components/layout/WelcomeScreen'
 import { Workspace } from '@/components/layout/Workspace'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NewProjectDialog } from '@/features/projects/ProjectDialogs'
+import { SettingsPage } from '@/features/settings/SettingsPage'
 import { TimelinePanel } from '@/features/timeline/TimelinePanel'
 import { useBlockWindowFileDrop, useShortcuts } from '@/hooks/useShortcuts'
 import { useActiveProject, useProjectStore } from '@/stores/projects'
@@ -22,7 +23,7 @@ function ResizeHandle() {
 export default function App() {
   const load = useProjectStore((s) => s.load)
   const project = useActiveProject()
-  const { sidebarOpen, timelineOpen } = useUiStore()
+  const { view, sidebarOpen, timelineOpen } = useUiStore()
 
   useShortcuts()
   useBlockWindowFileDrop()
@@ -47,6 +48,11 @@ export default function App() {
     <TooltipProvider delayDuration={400}>
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar />
+        {view === 'settings' ? (
+          <div className="min-h-0 flex-1">
+            <SettingsPage />
+          </div>
+        ) : (
         <PanelGroup direction="horizontal" autoSaveId="ai-studio-layout" className="min-h-0 flex-1">
           {sidebarOpen && (
             <>
@@ -70,6 +76,7 @@ export default function App() {
             </>
           )}
         </PanelGroup>
+        )}
       </div>
 
       <CommandPalette />

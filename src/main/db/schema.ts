@@ -100,5 +100,102 @@ export const MIGRATIONS: string[] = [
     created_at  INTEGER NOT NULL
   );
   CREATE INDEX idx_artifacts_mission ON mission_artifacts(mission_id, created_at);
+  `,
+  `
+  CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
+  `
+  CREATE TABLE manual_sessions (
+    id             TEXT PRIMARY KEY,
+    project_id     TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    mission_id     TEXT NOT NULL,
+    agent_id       TEXT NOT NULL,
+    provider_id    TEXT NOT NULL,
+    prompt         TEXT NOT NULL,
+    response       TEXT,
+    status         TEXT NOT NULL DEFAULT 'pending',
+    decisions      TEXT NOT NULL DEFAULT '[]',
+    tasks          TEXT NOT NULL DEFAULT '[]',
+    artifact_names TEXT NOT NULL DEFAULT '[]',
+    created_at     INTEGER NOT NULL,
+    responded_at   INTEGER,
+    duration_ms    INTEGER
+  );
+  CREATE INDEX idx_manual_sessions_project ON manual_sessions(project_id, created_at DESC);
+  `,
+  `
+  ALTER TABLE screenshots ADD COLUMN mission_id TEXT;
+  ALTER TABLE screenshots ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE screenshots ADD COLUMN viewport TEXT NOT NULL DEFAULT 'desktop';
+  ALTER TABLE screenshots ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark';
+  ALTER TABLE screenshots ADD COLUMN source TEXT NOT NULL DEFAULT 'import';
+  ALTER TABLE screenshots ADD COLUMN role TEXT NOT NULL DEFAULT 'current';
+
+  CREATE TABLE iterations (
+    id         TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    mission_id TEXT,
+    idx        INTEGER NOT NULL,
+    status     TEXT NOT NULL DEFAULT 'building',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_iterations_project ON iterations(project_id, idx DESC);
+
+  CREATE TABLE review_sessions (
+    id             TEXT PRIMARY KEY,
+    project_id     TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    mission_id     TEXT,
+    iteration      INTEGER NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'open',
+    reviewer       TEXT NOT NULL DEFAULT 'you',
+    scores         TEXT NOT NULL DEFAULT '[]',
+    summary        TEXT NOT NULL DEFAULT '',
+    recommendation TEXT,
+    created_at     INTEGER NOT NULL,
+    completed_at   INTEGER
+  );
+  CREATE INDEX idx_review_sessions_project ON review_sessions(project_id, created_at DESC);
+
+  CREATE TABLE annotations (
+    id            TEXT PRIMARY KEY,
+    session_id    TEXT NOT NULL REFERENCES review_sessions(id) ON DELETE CASCADE,
+    screenshot_id TEXT NOT NULL,
+    x             REAL NOT NULL,
+    y             REAL NOT NULL,
+    text          TEXT NOT NULL,
+    category      TEXT,
+    severity      TEXT NOT NULL DEFAULT 'medium',
+    author        TEXT NOT NULL DEFAULT 'you',
+    resolved      INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL
+  );
+  CREATE INDEX idx_annotations_session ON annotations(session_id);
+  `,
+  `
+  ALTER TABLE missions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+
+  CREATE TABLE mission_checkpoints (
+    id             TEXT PRIMARY KEY,
+    mission_id     TEXT NOT NULL,
+    project_id     TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    stage          TEXT NOT NULL,
+    iteration      INTEGER NOT NULL,
+    artifact_count INTEGER NOT NULL,
+    created_at     INTEGER NOT NULL
+  );
+  CREATE INDEX idx_checkpoints_mission ON mission_checkpoints(mission_id, created_at);
+
+  CREATE TABLE mission_reports (
+    mission_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    data       TEXT NOT NULL,
+    markdown   TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_reports_project ON mission_reports(project_id, created_at DESC);
   `
 ]

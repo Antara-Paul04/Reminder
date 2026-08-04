@@ -1,4 +1,15 @@
-import type { FileUpload, QaSeverity } from '@shared/types'
+import type {
+  AnnotationInput,
+  CategoryScore,
+  ClaudeCodeConfig,
+  FileUpload,
+  LoopPolicy,
+  QaSeverity,
+  ReviewRecommendation,
+  ReviewTheme,
+  ScreenshotRole,
+  Viewport
+} from '@shared/types'
 
 const invoke = window.api.invoke
 
@@ -38,8 +49,26 @@ export const api = {
   },
   screenshots: {
     list: (projectId: string) => invoke('screenshots:list', projectId),
-    add: (projectId: string, file: FileUpload) => invoke('screenshots:add', projectId, file),
     remove: (id: string) => invoke('screenshots:remove', id)
+  },
+  review: {
+    import: (
+      projectId: string,
+      file: FileUpload,
+      meta: { role: ScreenshotRole; viewport?: Viewport; theme?: ReviewTheme }
+    ) => invoke('review:import', projectId, file, meta),
+    iterations: (projectId: string) => invoke('review:iterations', projectId),
+    sessions: (projectId: string) => invoke('review:sessions', projectId),
+    start: (projectId: string) => invoke('review:start', projectId),
+    annotate: (input: AnnotationInput) => invoke('review:annotate', input),
+    annotations: (sessionId: string) => invoke('review:annotations', sessionId),
+    resolveAnnotation: (id: string, resolved: boolean) =>
+      invoke('review:annotation:resolve', id, resolved),
+    deleteAnnotation: (id: string) => invoke('review:annotation:delete', id),
+    score: (sessionId: string, score: CategoryScore) => invoke('review:score', sessionId, score),
+    summary: (sessionId: string, summary: string) => invoke('review:summary', sessionId, summary),
+    complete: (sessionId: string, recommendation: ReviewRecommendation, summary?: string) =>
+      invoke('review:complete', sessionId, recommendation, summary)
   },
   qa: {
     list: (projectId: string) => invoke('qa:list', projectId),
@@ -58,6 +87,38 @@ export const api = {
     resume: (missionId: string) => invoke('missions:resume', missionId),
     cancel: (missionId: string) => invoke('missions:cancel', missionId),
     retry: (missionId: string) => invoke('missions:retry', missionId),
-    artifacts: (missionId: string) => invoke('missions:artifacts', missionId)
+    artifacts: (missionId: string) => invoke('missions:artifacts', missionId),
+    policyGet: () => invoke('missions:policy:get'),
+    policySet: (partial: Partial<LoopPolicy>) => invoke('missions:policy:set', partial),
+    report: (missionId: string) => invoke('missions:report', missionId),
+    checkpoints: (missionId: string) => invoke('missions:checkpoints', missionId),
+    archive: (missionId: string, archived: boolean) =>
+      invoke('missions:archive', missionId, archived),
+    duplicate: (missionId: string) => invoke('missions:duplicate', missionId),
+    rollback: (missionId: string, reason?: string) =>
+      invoke('missions:rollback', missionId, reason)
+  },
+  manual: {
+    pending: (projectId: string) => invoke('manual:pending', projectId),
+    import: (providerId: string, sessionId: string, response: string) =>
+      invoke('manual:import', providerId, sessionId, response),
+    copy: (providerId: string, sessionId: string) => invoke('manual:copy', providerId, sessionId),
+    open: (providerId: string) => invoke('manual:open', providerId),
+    sessions: (projectId: string, query?: string) => invoke('manual:sessions', projectId, query)
+  },
+  providers: {
+    list: () => invoke('providers:list'),
+    select: (agentId: string, providerId: string, projectId?: string) =>
+      invoke('providers:select', agentId, providerId, projectId),
+    connect: (providerId: string) => invoke('providers:connect', providerId),
+    disconnect: (providerId: string) => invoke('providers:disconnect', providerId)
+  },
+  claudeCode: {
+    getConfig: () => invoke('claudecode:config:get'),
+    setConfig: (partial: Partial<ClaudeCodeConfig>) => invoke('claudecode:config:set', partial),
+    health: () => invoke('claudecode:health')
+  },
+  app: {
+    info: () => invoke('app:info')
   }
 }

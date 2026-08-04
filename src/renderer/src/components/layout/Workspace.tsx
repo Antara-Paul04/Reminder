@@ -3,7 +3,7 @@ import type { Project } from '@shared/types'
 import { InspirationPanel } from '@/features/inspiration/InspirationPanel'
 import { NotesPanel } from '@/features/notes/NotesPanel'
 import { QaPanel } from '@/features/qa/QaPanel'
-import { ScreenshotsPanel } from '@/features/screenshots/ScreenshotsPanel'
+import { ReviewPanel } from '@/features/review/ReviewPanel'
 import { SessionPanel } from '@/features/session/SessionPanel'
 import { SpecPanel } from '@/features/spec/SpecPanel'
 import { cn } from '@/lib/utils'
@@ -59,7 +59,7 @@ function TabContent({ tab, projectId }: { tab: WorkspaceTab; projectId: string }
     case 'session':
       return <SessionPanel projectId={projectId} />
     case 'screenshots':
-      return <ScreenshotsPanel projectId={projectId} />
+      return <ReviewPanel projectId={projectId} />
     case 'qa':
       return <QaPanel projectId={projectId} />
   }

@@ -3,10 +3,13 @@ import {
   Activity,
   Bot,
   Camera,
+  ClipboardPaste,
+  Eye,
   FileBox,
   FileText,
   FolderKanban,
   Image as ImageIcon,
+  Plug,
   Rocket,
   ShieldCheck,
   StickyNote,
@@ -26,7 +29,10 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   qa: ShieldCheck,
   mission: Rocket,
   agent: Bot,
-  artifact: FileBox
+  artifact: FileBox,
+  provider: Plug,
+  manual: ClipboardPaste,
+  review: Eye
 }
 
 function iconFor(event: TimelineEvent): LucideIcon {

@@ -3,7 +3,8 @@ import {
   LayoutPanelLeft,
   PanelLeft,
   PanelRight,
-  Plus
+  Plus,
+  Settings
 } from 'lucide-react'
 import {
   CommandDialog,
@@ -46,6 +47,10 @@ export function CommandPalette() {
           <CommandItem onSelect={() => run(ui.toggleTimeline)}>
             <PanelRight /> Toggle activity timeline
             <Kbd className="ml-auto">⌘J</Kbd>
+          </CommandItem>
+          <CommandItem onSelect={() => run(() => ui.setView('settings'))}>
+            <Settings /> Open settings
+            <Kbd className="ml-auto">⌘,</Kbd>
           </CommandItem>
         </CommandGroup>
 

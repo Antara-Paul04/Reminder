@@ -1,4 +1,4 @@
-import { PanelLeft, PanelRight, Command as CommandIcon, ChevronRight } from 'lucide-react'
+import { PanelLeft, PanelRight, Command as CommandIcon, ChevronRight, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -7,7 +7,7 @@ import { useUiStore } from '@/stores/ui'
 
 export function TitleBar() {
   const project = useActiveProject()
-  const { toggleSidebar, toggleTimeline, setPaletteOpen } = useUiStore()
+  const { toggleSidebar, toggleTimeline, setPaletteOpen, setView, view } = useUiStore()
 
   return (
     <header className="drag-region flex h-12 shrink-0 items-center border-b bg-background pl-[84px] pr-3">
@@ -49,6 +49,19 @@ export function TitleBar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Toggle activity · ⌘J</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setView(view === 'settings' ? 'workspace' : 'settings')}
+            >
+              <Settings className="!size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Settings · ⌘,</TooltipContent>
         </Tooltip>
       </div>
     </header>

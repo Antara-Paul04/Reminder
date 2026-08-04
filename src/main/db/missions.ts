@@ -9,6 +9,7 @@ interface MissionRow {
   status: string
   stage: string
   failed_step_index: number | null
+  archived: number
   created_at: number
   updated_at: number
 }
@@ -22,6 +23,7 @@ function toRecord(row: MissionRow): MissionRecord {
     status: row.status as MissionStatus,
     stage: row.stage as MissionStage,
     failedStepIndex: row.failed_step_index,
+    archived: row.archived === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -34,6 +36,13 @@ export function listMissions(projectId: string): MissionRecord[] {
   return rows.map(toRecord)
 }
 
+export function getMissionRecord(id: string): MissionRecord | null {
+  const row = getDb().prepare('SELECT * FROM missions WHERE id = ?').get(id) as
+    | MissionRow
+    | undefined
+  return row ? toRecord(row) : null
+}
+
 export function countMissions(projectId: string): number {
   const row = getDb()
     .prepare('SELECT COUNT(*) AS n FROM missions WHERE project_id = ?')
@@ -42,7 +51,7 @@ export function countMissions(projectId: string): number {
 }
 
 /** Inserts or refreshes a mission row from a runtime snapshot. */
-export function upsertMission(record: MissionRecord): void {
+export function upsertMission(record: Omit<MissionRecord, 'archived'>): void {
   getDb()
     .prepare(
       `INSERT INTO missions (id, project_id, title, brief, status, stage, failed_step_index, created_at, updated_at)
@@ -50,7 +59,17 @@ export function upsertMission(record: MissionRecord): void {
        ON CONFLICT(id) DO UPDATE SET
          status = @status, stage = @stage, failed_step_index = @failedStepIndex, updated_at = @updatedAt`
     )
-    .run(record)
+    .run({
+      id: record.id,
+      projectId: record.projectId,
+      title: record.title,
+      brief: record.brief,
+      status: record.status,
+      stage: record.stage,
+      failedStepIndex: record.failedStepIndex,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt
+    })
 }
 
 /** Missions left 'running'/'paused' by a previous app session can never resume. */

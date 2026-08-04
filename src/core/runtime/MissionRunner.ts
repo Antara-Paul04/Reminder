@@ -1,6 +1,6 @@
 import type { Agent } from './Agent'
 import type { EventBus } from './EventBus'
-import type { AgentEvent, Mission, MissionStage, RuntimeEvent } from './types'
+import type { AgentEvent, Artifact, Mission, MissionRuntimeEvent, MissionStage } from './types'
 import { MissionCancelledError } from './types'
 import { appendTimelineEntry, snapshotMission } from './Mission'
 
@@ -128,6 +128,48 @@ export class MissionRunner {
     return this.running
   }
 
+  /** 1-based build iteration = executions of the engineering step. */
+  get iteration(): number {
+    const index = this.steps.findIndex((s) => s.agent.role === 'engineer')
+    return Math.max(1, index >= 0 ? this.attempts[index] : 1)
+  }
+
+  /**
+   * Attach an artifact outside any agent step (revision plans, reports).
+   * Emits the same events a provider-produced artifact would.
+   */
+  attachArtifact(
+    draft: { name: string; kind: Artifact['kind']; description: string; content: string },
+    createdBy: string
+  ): Artifact {
+    const artifact: Artifact = {
+      ...draft,
+      id: crypto.randomUUID(),
+      missionId: this.mission.id,
+      createdBy,
+      createdAt: Date.now()
+    }
+    this.mission.artifacts.push(artifact)
+    this.mission.updatedAt = artifact.createdAt
+    this.emit({ type: 'agent.artifact', agentId: createdBy, artifact })
+    this.timeline('artifact.created', `${createdBy} produced ${artifact.name}`, createdBy)
+    return artifact
+  }
+
+  /**
+   * Sends a settled (completed/failed) mission back to the engineering step
+   * — the mechanism behind quality-threshold revisions and rollbacks.
+   */
+  markForRevision(reason: string): void {
+    if (this.running) throw new Error('Mission is still running')
+    const engineerStep = this.steps.findIndex((s) => s.agent.role === 'engineer')
+    if (engineerStep < 0) throw new Error('Pipeline has no engineering step')
+    this.mission.status = 'failed'
+    this.mission.failedStepIndex = engineerStep
+    this.emit({ type: 'mission.failed', reason, failedStepIndex: engineerStep })
+    this.timeline('mission.failed', `Revision requested: ${reason}`, 'AI Studio')
+  }
+
   // -- internals ------------------------------------------------------------
 
   private async executeStep(index: number): Promise<void> {
@@ -247,14 +289,16 @@ export class MissionRunner {
     this.emit({ type: 'timeline.entry', entry })
   }
 
-  private emit(partial: DistributiveOmit<RuntimeEvent, 'id' | 'at' | 'missionId' | 'projectId'>): void {
+  private emit(
+    partial: DistributiveOmit<MissionRuntimeEvent, 'id' | 'at' | 'missionId' | 'projectId'>
+  ): void {
     this.bus.emit({
       ...partial,
       id: crypto.randomUUID(),
       at: Date.now(),
       missionId: this.mission.id,
       projectId: this.mission.projectId
-    } as RuntimeEvent)
+    } as MissionRuntimeEvent)
   }
 }
 

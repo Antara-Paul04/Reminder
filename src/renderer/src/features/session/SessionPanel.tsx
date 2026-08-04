@@ -4,8 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AGENT_STATUS_META, MISSION_STATUS_META } from '@/lib/agentMeta'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 import { useRuntimeStore } from '@/stores/runtime'
+import { ManualActionCard } from './ManualActionCard'
 import { MissionControls } from './MissionControls'
+import { MissionDashboard } from './MissionDashboard'
+import { MissionHistory } from './MissionHistory'
 import { MissionProgress } from './MissionProgress'
 import { Transcript } from './Transcript'
 
@@ -14,9 +18,13 @@ import { Transcript } from './Transcript'
  * runtime events, with no knowledge of which provider powers an agent.
  */
 export function SessionPanel({ projectId }: { projectId: string }) {
-  const { agents, missions, transcripts, progress } = useRuntimeStore()
+  const { agents, missions, transcripts, progress, pendingManual, metrics } = useRuntimeStore()
+  const [view, setView] = useState<'transcript' | 'history'>('transcript')
   const mission = missions[0] ?? null
   const lines = mission ? (transcripts[mission.id] ?? []) : []
+  const manualPending =
+    pendingManual && mission && pendingManual.missionId === mission.id ? pendingManual : null
+  const missionMetrics = mission ? metrics[mission.id] : undefined
 
   return (
     <div className="flex h-full flex-col">
@@ -44,7 +52,7 @@ export function SessionPanel({ projectId }: { projectId: string }) {
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[240px]">
-                {agent.description} · provider: {agent.provider}
+                {agent.description} · via {agent.providerName}
               </TooltipContent>
             </Tooltip>
           )
@@ -60,12 +68,34 @@ export function SessionPanel({ projectId }: { projectId: string }) {
         <div className="shrink-0 border-b px-4 pb-3 pt-3">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <p className="truncate text-[13px] font-medium">{mission.title}</p>
+            <div className="flex shrink-0 items-center gap-1">
+              {(['transcript', 'history'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 text-[10px] capitalize transition-colors',
+                    view === v
+                      ? 'border-primary/50 bg-primary/15 text-primary'
+                      : 'border-border text-muted-foreground hover:bg-accent'
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
           <MissionProgress mission={mission} />
         </div>
       )}
 
-      {mission ? (
+      {mission && missionMetrics && view === 'transcript' && (
+        <MissionDashboard mission={mission} metrics={missionMetrics} />
+      )}
+
+      {view === 'history' ? (
+        <MissionHistory missions={missions} />
+      ) : mission ? (
         lines.length > 0 ? (
           <Transcript lines={lines} agents={agents} />
         ) : (
@@ -74,6 +104,8 @@ export function SessionPanel({ projectId }: { projectId: string }) {
       ) : (
         <EmptySession />
       )}
+
+      {manualPending && <ManualActionCard pending={manualPending} />}
 
       <div className="shrink-0 border-t p-3">
         <div className="flex items-center gap-2">
